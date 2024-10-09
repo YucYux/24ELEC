@@ -9,28 +9,51 @@
 using namespace std;
 
 vector<string> TEXT_FILE_PATH;
-#define FADE_RATE  0.1
-#define NATION_WEIGHT 0.5
-#define STATE_WEIGHT 0.5
-#define SENATE_WEIGHT 0.5
-#define HOUSE_WEIGHT 0.5
-#define LEGISLATURE_WEIGHT 0.1
-#define HISTORY_WEIGHT 0.2
-#define THIS_YEAR 2024  // 今年是哪年
-#define MAX_DAYS 200    // 最大统计天数
-#define START_MONTH 7   // 基准月份
-#define START_DAY 15    // 基准日期 2024-07-15对应0
-#define SMOOTH_STRENGTH 0.1 //最终胜率平滑强度
-#define WIN_RATE_VOLATILITY 1.0 // 胜率波动率
-#define EXPOSURE_WEIGHT 1.0
-#define SMOOTH_THRESHOLD_1 0.55
-#define SMOOTH_THRESHOLD_2 0.6
-#define MAX_NEWS 200000 //最多有多少篇新闻
-#define MAX_EXPOSURE_SOURCEFILE 161
-const string TARGET_STATE = "MI"; // 现在要计算的州名
-const string SOURCE_DIR = ".\\0930csv\\";
-const string OUTPUT_DIR = ".\\0930csv\\";
+// #define FADE_RATE  0.1
+// #define NATION_WEIGHT 0.5
+// #define STATE_WEIGHT 0.5
+// #define SENATE_WEIGHT 0.5
+// #define HOUSE_WEIGHT 0.5
+// #define LEGISLATURE_WEIGHT 0.1
+// #define HISTORY_WEIGHT 0.2
+// #define THIS_YEAR 2024  // 今年是哪年
+// #define MAX_DAYS 200    // 最大统计天数
+// #define START_MONTH 7   // 基准月份
+// #define START_DAY 15    // 基准日期 2024-07-15对应0
+// #define SMOOTH_STRENGTH 0.1 //最终胜率平滑强度
+// #define WIN_RATE_VOLATILITY 1.0 // 胜率波动率
+// #define EXPOSURE_WEIGHT 1.0
+// #define SMOOTH_THRESHOLD_1 0.55
+// #define SMOOTH_THRESHOLD_2 0.6
+// #define MAX_NEWS 200000 //最多有多少篇新闻
+// #define MAX_EXPOSURE_SOURCEFILE 161
+// const string TARGET_STATE = "MI"; // 现在要计算的州名
+// const string SOURCE_DIR = ".\\0930csv\\";
+// const string OUTPUT_DIR = ".\\0930csv\\";
 // const string EXPOSURE_SOURCE_DIR = "C:\\Users\\NM-on\\OneDrive\\2024election\\0929exposure\\";
+const int MAX_NEWS = 200000;
+const int MAX_DAYS = 200;
+const string CONFIG_FILE = "config.txt";
+
+float FADE_RATE = 0.1;
+float NATION_WEIGHT = 0.5;
+float STATE_WEIGHT = 0.5;
+float SENATE_WEIGHT = 0.5;
+float HOUSE_WEIGHT = 0.5;
+float LEGISLATURE_WEIGHT = 0.1;
+float HISTORY_WEIGHT = 0.2;
+int THIS_YEAR = 2024;
+int START_MONTH = 7;
+int START_DAY = 15;
+float SMOOTH_STRENGTH = 0.1;
+float WIN_RATE_VOLATILITY = 1.0;
+float EXPOSURE_WEIGHT = 1.0;
+float SMOOTH_THRESHOLD_1 = 0.55;
+float SMOOTH_THRESHOLD_2 = 0.6;
+int MAX_EXPOSURE_SOURCEFILE = 161;
+string TARGET_STATE = "MI"; // 现在要计算的州名
+string SOURCE_DIR = ".\\0930csv\\";
+string OUTPUT_DIR = ".\\0930csv\\";
 
 int effectiveRows;
 int allRows;
@@ -93,6 +116,85 @@ float redLegiRatio,blueLegiRatio;
 
 string redStrings[10] = {"Trump", "Presimpt Trump", "Former President Trump", "The Donald", "MAGA leader", "Republican","GOP","Conservatives","The right","Trump supporters"};
 string blueStrings[9] = {"Harris", "Vice President Harris", "Former Senator Harris", "first female VP","Democrat", "Dems", "Liberals", "The left", "Progressives"};
+
+std::string trim(const std::string& str) {
+    size_t first = 0;
+    size_t last = str.size() - 1;
+    // 手动找到第一个非空白字符
+    while (first < str.size() && (str[first] == ' ' || str[first] == '\t' || str[first] == '\n' || str[first] == '\r')) {
+        ++first;
+    }
+    if (first == str.size()) {
+        return ""; // 如果全是空白字符，返回空字符串
+    }
+    // 手动找到最后一个非空白字符
+    while (last > first && (str[last] == ' ' || str[last] == '\t' || str[last] == '\n' || str[last] == '\r')) {
+        --last;
+    }
+    return str.substr(first, last - first + 1);
+}
+
+void readConfig(const std::string& filename) {
+    std::map<std::string, std::string> configMap;
+    std::ifstream configFile(filename);
+    
+    if (!configFile.is_open()) {
+        std::cerr << "无法打开配置文件: " << filename << std::endl;
+        return;
+    }
+
+    std::string line;
+    while (std::getline(configFile, line)) {
+        // 去除行首和行尾的空白字符
+        line = trim(line);
+
+        // 跳过空行或注释行（以#或//开头的行）
+        if (line.empty() || line[0] == '#' || line.substr(0, 2) == "//") {
+            continue;
+        }
+
+        // 检查行内的注释（去掉行尾的注释部分）
+        size_t commentPos = line.find('#');
+        if (commentPos == std::string::npos) {
+            commentPos = line.find("//");
+        }
+        if (commentPos != std::string::npos) {
+            line = line.substr(0, commentPos);
+        }
+
+        std::istringstream lineStream(line);
+        std::string key, value;
+        
+        // 解析出键值对，假设格式是 key=value
+        if (std::getline(lineStream, key, '=') && std::getline(lineStream, value)) {
+            // 去除键和值的前后空白
+            key = trim(key);
+            value = trim(value);
+            configMap[key] = value;
+        }
+    }
+
+    configFile.close();
+    //return configMap;
+
+    FADE_RATE = stof(configMap["FADE_RATE"]);
+    NATION_WEIGHT = stof(configMap["NATION_WEIGHT"]);
+    STATE_WEIGHT = stof(configMap["STATE_WEIGHT"]);
+    SENATE_WEIGHT = stof(configMap["SENATE_WEIGHT"]);
+    HOUSE_WEIGHT = stof(configMap["HOUSE_WEIGHT"]);
+    LEGISLATURE_WEIGHT = stof(configMap["LEGISLATURE_WEIGHT"]);
+    HISTORY_WEIGHT = stof(configMap["HISTORY_WEIGHT"]);
+    THIS_YEAR = stoi(configMap["THIS_YEAR"]);
+    START_MONTH = stoi(configMap["START_MONTH"]);
+    START_DAY = stoi(configMap["START_DAY"]);
+    SMOOTH_STRENGTH = stof(configMap["SMOOTH_STRENGTH"]);
+    WIN_RATE_VOLATILITY = stof(configMap["WIN_RATE_VOLATILITY"]);
+    EXPOSURE_WEIGHT = stof(configMap["EXPOSURE_WEIGHT"]);
+    SMOOTH_THRESHOLD_1 = stof(configMap["SMOOTH_THRESHOLD_1"]);
+    SMOOTH_THRESHOLD_2 = stof(configMap["SMOOTH_THRESHOLD_2"]);
+    MAX_EXPOSURE_SOURCEFILE = stoi(configMap["MAX_EXPOSURE_SOURCEFILE"]);
+    TARGET_STATE = configMap["TARGET_STATE"];
+}
 
 int Date2Int(const string& date);
 int countOccurrences(const string& str, const string& sub) {
@@ -829,6 +931,7 @@ void outputExposure()
 
 
 int main() {
+    readConfig(CONFIG_FILE);
 
     for(int i=1;i<=9;i++)
         TEXT_FILE_PATH.push_back(SOURCE_DIR+"res_2024-08-0"+to_string(i)+".txt");
