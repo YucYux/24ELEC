@@ -28,8 +28,8 @@ vector<string> TEXT_FILE_PATH;
 #define MAX_NEWS 200000 //最多有多少篇新闻
 #define MAX_EXPOSURE_SOURCEFILE 161
 const string TARGET_STATE = "MI"; // 现在要计算的州名
-const string SOURCE_DIR = "C:\\Users\\NM-on\\OneDrive\\2024election\\0930csv\\";
-const string OUTPUT_DIR = "C:\\Users\\NM-on\\OneDrive\\2024election\\0930csv\\";
+const string SOURCE_DIR = ".\\0930csv\\";
+const string OUTPUT_DIR = ".\\0930csv\\";
 // const string EXPOSURE_SOURCE_DIR = "C:\\Users\\NM-on\\OneDrive\\2024election\\0929exposure\\";
 
 int effectiveRows;
