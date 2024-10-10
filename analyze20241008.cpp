@@ -956,7 +956,6 @@ int main() {
 
     CalculateExposure();
     outputExposure();
-    return 0;
     CalculateFavor();
     CalculateScore();
     CalculateWinRate();
